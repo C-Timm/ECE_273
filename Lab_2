@@ -1,0 +1,23 @@
+/*
+ * Lab_2.c
+ *
+ * Created: 1/22/2019 1:08:54 PM
+ * Author : crtimm17
+ */ 
+
+#include <avr/io.h>
+#include <avr/power.h>
+
+int main(void)
+{
+    clock_prescale_set(clock_div_1);
+	DDRD |= 0xff;
+	while(1)
+	{
+		PORTD ^=0xff;
+		for(int32_t i=0; i<55500;i++){;}
+		
+	}
+	
+}
+
