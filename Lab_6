@@ -1,13 +1,49 @@
 /*
- * Lab_6.c
- *
- * Created: 2/19/2019 12:52:59 PM
- * Author : Christopher Timm & Brett Young
- *
- * ////////////////////SDR///////////////////////////////
- *
- *
- *
+Authors : Christopher Timm & Brett Young
+Created : 2/19/2019 1:31:41 PM
+Title : Two Matrix Minute-Second Clock
+
+SDR : 
+Hardware 
+   2 : 7x5 LED Matrix
+   2 : NO Buttons
+   12 : 47 Ohm resistors
+   2 : 330 Ohm resistors
+   2 : Discrete LED
+7x5 LED Matrix (1)(Minutes)                          NO Buttons
+     PC pins : wiring cathodes of matrix                PE pins
+PC0 wired to matrix pin 1                           PE6 to NO button to ground
+PC1 wired to matrix pin 3                           PE1 to NO button to ground
+PC2 wired to matrix pin 10
+PC3 wired to matrix pin 7
+PC4 wired to matrix pin 8
+     PF pins : wiring anodes of LED matrix
+PF0 to 47 Ohm resistor to matrix pin 12
+PF1 to 47 Ohm resistor to matrix pin 11
+PF2 to 47 Ohm resistor to matrix pin 2
+PF4 to 47 Ohm resistor to matrix pin 4
+PF5 to 47 Ohm resistor to matrix pin 5
+PF6 to 47 Ohm resistor to matrix pin 6
+7x5 LED Matrix (2)(Seconds)                          
+     PB pins : wiring cathodes of matrix            
+PB0 wired to matrix pin 1                         
+PB1 wired to matrix pin 3                        
+PB2 wired to matrix pin 10
+PB3 wired to matrix pin 7
+PB4 wired to matrix pin 8
+     PD pins : wiring anodes of LED matrix
+PD0 to 47 Ohm resistor to matrix pin 12
+PD1 to 47 Ohm resistor to matrix pin 11
+PD2 to 47 Ohm resistor to matrix pin 2
+PD4 to 47 Ohm resistor to matrix pin 4
+PD5 to 47 Ohm resistor to matrix pin 5
+PD6 to 47 Ohm resistor to matrix pin 6
+Discrete LEDs
+     PE pins
+PE7 to LED to 330 Ohm resistor to ground
+PE0 to LED to 330 Ohm resistor to ground
+
+
  
  
  The software must comply with five rules for critical systems:
@@ -41,7 +77,7 @@
  //////////GOOD////////10.The clock does not emit or collect any data of any kind to other software components. The AVR/IO.H and 
     AVR-LIBC framework provides access to the capabilities of the AT90USB1286 and that is all
 	
- 11. the first two are tens and single minutes. The last two are tens and single seconds
+//////////GOOD//////// 11. the first two are tens and single minutes. The last two are tens and single seconds
      The minutes and the seconds are separated by a colon (which can be two discrete LEDs).
 	  Req. 4.1.B. The digits shown are in a 3 x 5 pixel font and each digit is separated by
 	  at least one blank (that is, always-off) column of pixels or 0.1 inches from all other digits.
