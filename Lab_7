@@ -1,0 +1,396 @@
+/*
+ * Lab_7.c
+ *
+ * Created: 2/26/2019 1:02:11 PM
+ * Author : Crtimm17
+ */ 
+
+
+#include <avr/io.h>
+#include <stdint.h>
+#include <avr/interrupt.h>
+
+//Functions
+void config_io();
+void display_digits_left();
+void display_digits_right();
+void reset_display();
+void interrupt_func();
+
+uint8_t mode_machine();
+uint8_t get_btn_press();
+uint8_t sec_btn_state(uint8_t);
+uint8_t mins_btn_state(uint8_t);
+uint8_t alarm_btn_state(uint8_t );
+uint8_t alarm_sounds(uint8_t, uint8_t);
+
+//Global Variables
+uint8_t display_tensm = 0;
+uint8_t display_onesm = 0;
+uint8_t display_secten = 0;
+uint8_t display_seconds = 0;
+
+uint8_t Alarm_tens_min = 0;
+uint8_t Alarm_one_min= 0;
+uint8_t Alarm_tens_sec = 0;
+uint8_t Alarm_ones_sec = 0;
+
+
+enum {BTN_LOW, BTN_RISING, BTN_HIGH, BTN_FALLING};
+enum {ALARM_REST, ALARM_SOUNDS, ALARM_HOLD};
+enum {NULL_BTN, MINS_BTN, SEC_BTN};
+enum {INC_SEC, INC_MINS};
+	
+int main(void)
+{
+	Alarm_tens_min = 0;
+	Alarm_one_min= 1;
+	Alarm_tens_sec = 2;
+	Alarm_ones_sec = 3;
+   config_io();
+    while (1) 
+    {
+		uint8_t a = mode_machine();
+		
+		//  ALARM_REST
+		
+		
+		// ALARM_SOUNDS
+		if(a == ALARM_SOUNDS){
+			TCCR3A = 0x40; 
+			while(display_secten < display_secten+3){ TCCR3A = 0x00; }
+			a= mode_machine();
+		}
+	
+	//ALARM_HOLD
+		if(a == ALARM_HOLD){
+			TCCR3A = 0x00;	
+			//	while()
+		}
+		
+		
+		
+		
+		display_digits_left();
+		display_digits_right();
+
+   uint8_t x = get_btn_press();
+		if(x == SEC_BTN){
+			display_seconds++;  
+			if(display_seconds > 9)  {display_seconds = 0; display_secten++;}
+			if(display_secten > 5)   {display_secten = 0; display_onesm++;}
+			if(display_onesm  > 9)   {display_onesm = 0; display_tensm++;} 			
+		}
+		if(x == MINS_BTN){
+			display_onesm++;
+			if(display_onesm > 9) {display_onesm = 0 ; display_tensm++;}
+			if(display_tensm > 5) {reset_display();}
+		}
+    }
+	return 0;
+}
+/**/
+uint8_t mode_machine(){
+	uint8_t now = 0;
+	if((display_tensm == Alarm_tens_min) && (display_onesm == Alarm_one_min) && (display_secten == Alarm_tens_sec) && (display_seconds == Alarm_ones_sec)){
+		now=1;
+		return alarm_sounds(now, alarm_btn_state(PIND & (1<<7)));
+	}else{
+		now = 0;
+		return alarm_sounds(now, alarm_btn_state(PIND & (1<<7)));
+	}
+	
+}
+
+uint8_t alarm_sounds(uint8_t now, uint8_t alarmBtn){
+	static uint8_t state = ALARM_REST;
+	uint8_t out = ALARM_REST;
+	switch (state){
+		case ALARM_REST:
+			if(now==0){ state = ALARM_REST;}
+			else {state= ALARM_SOUNDS;}
+			break;
+		case ALARM_SOUNDS:
+			if(alarmBtn == BTN_FALLING) { state = ALARM_HOLD;}
+			else if (alarmBtn != BTN_FALLING) { state = ALARM_SOUNDS;}
+			break;
+		case ALARM_HOLD:
+			if(now==0) {state = ALARM_REST;}
+			else {state = ALARM_HOLD;}
+			break;
+			
+		}
+				
+	return out = state;
+}
+/*
+ Interrupt service routine which interrupts every second
+ i.e. when OCR1A = 31249; then calles interrupt_func() 
+ which executes the display times logic 
+ 
+ Function calls: interrupt_func()
+*/
+ISR(TIMER1_COMPA_vect){
+	interrupt_func();
+}
+
+/*square wave for speaker*/
+ISR(TIMER3_COMPB_vect){
+	TCCR3A = 0x00;
+	//PINB ^= (1<<6);
+}
+
+
+
+/*
+  Funtion calls min_btn_state() and sec_btn_state() (which
+  passes PB6 and PB1) to check for a falling edge on PB6 or
+  PB1.If a falling edge is detected on PB6, MINS_BTN is 
+  returned, because the user wants to increase the number 
+  of minutes displayed. Like wise for the Seconds button on
+  PB1, but it returns SEC_BTN. If there is no falling edge 
+  detected NULL_BTN is returned
+  
+  Return Values: MINS_BTN, SEC_BTN, NULL_BTN
+  Function calls: mins_btn_state(), sec_btn_state()
+*/
+uint8_t get_btn_press() {
+		
+		if(mins_btn_state(PINE & (1<<6)) == BTN_FALLING){
+			return MINS_BTN;
+		} 
+		
+		if(sec_btn_state(PINE & (1<<1)) == BTN_FALLING){
+			return SEC_BTN;
+		} else return NULL_BTN;
+		
+}
+
+/**/
+uint8_t alarm_btn_state(uint8_t in)
+{
+	enum {LSTDY, LEDGY, HSTDY, HEDGY};
+	static uint8_t state = HSTDY;
+	uint8_t out = BTN_HIGH;
+	switch (state){
+		case LSTDY:
+		if (in==0){state = LSTDY; out = BTN_LOW;}
+		else      {state = LEDGY; out = BTN_LOW;}
+		break;
+		case LEDGY:
+		if (in==0){state = LSTDY; out = BTN_LOW;}
+		else      {state = HSTDY; out = BTN_RISING;}
+		break;
+		case HSTDY:
+		if (in==0){state = HEDGY; out = BTN_HIGH;}
+		else      {state = HSTDY; out = BTN_HIGH;}
+		case HEDGY:
+		if (in==0){state = LSTDY; out = BTN_FALLING;}
+		else      {state = HSTDY; out = BTN_HIGH;}
+	}
+	return out;
+}
+/*
+	State Machine for Minutes button in PB6. De-bounces button
+	using edge detector state machine and returns button state 
+	
+	Argument : PB6 (specifically)  / any button (in general)
+	Return Values: BTN_LOW, BTN_RISING, BTN_HIGH, BTN_FALLING
+*/
+uint8_t mins_btn_state(uint8_t in){
+	enum {LSTDY, LEDGY, HSTDY, HEDGY};
+	static uint8_t state = HSTDY;
+	uint8_t out = BTN_HIGH;
+	switch (state){
+		case LSTDY:
+		if (in==0){state = LSTDY; out = BTN_LOW;}
+		else      {state = LEDGY; out = BTN_LOW;}
+		break;
+		case LEDGY:
+		if (in==0){state = LSTDY; out = BTN_LOW;}
+		else      {state = HSTDY; out = BTN_RISING;}
+		break;
+		case HSTDY:
+		if (in==0){state = HEDGY; out = BTN_HIGH;}
+		else      {state = HSTDY; out = BTN_HIGH;}
+		case HEDGY:
+		if (in==0){state = LSTDY; out = BTN_FALLING;}
+		else      {state = HSTDY; out = BTN_HIGH;}
+	}
+	return out;
+	
+}
+
+/*
+ State Machine for Seconds button in PB6. De-bounces button
+ using edge detector state machine and returns button state
+
+ Argument : PB6 (specifically)  / any button (in general)
+ Return Values: BTN_LOW, BTN_RISING, BTN_HIGH, BTN_FALLING
+*/
+uint8_t sec_btn_state(uint8_t in)
+{
+	enum {LSTDY, LEDGY, HSTDY, HEDGY};
+	static uint8_t state = HSTDY;
+	uint8_t out = BTN_HIGH;
+	switch (state){
+		case LSTDY:
+		if (in==0){state = LSTDY; out = BTN_LOW;}
+		else      {state = LEDGY; out = BTN_LOW;}
+		break;
+		case LEDGY:
+		if (in==0){state = LSTDY; out = BTN_LOW;}
+		else      {state = HSTDY; out = BTN_RISING;}
+		break;
+		case HSTDY:
+		if (in==0){state = HEDGY; out = BTN_HIGH;}
+		else      {state = HSTDY; out = BTN_HIGH;}
+		case HEDGY:
+		if (in==0){state = LSTDY; out = BTN_FALLING;}
+		else      {state = HSTDY; out = BTN_HIGH;}
+	}
+	return out;
+}
+
+/*
+ Function is using the const 2D array "allDigits" to
+ display number to the left LED screen. It displays
+ 2 numbers on the left 5x7 LED matrix the digits are
+ 3x5 each with a space in the middle which are used
+ to display the two digits used for the minutes.
+*/
+void display_digits_left(){
+	const uint8_t cathodes[5]= {1<<4, 1<<3, 1<<2, 1<<1, 1<<0};
+	const int8_t allDigits [11][5] =
+	{						// Numbers
+		{0x2,0x5,0x5,0x5,0x2}, // 0  
+		{0x2,0x3,0x2,0x2,0x7}, // 1 
+		{0x3,0x4,0x2,0x1,0x7}, // 2 
+		{0x7,0x4,0x6,0x4,0x7}, // 3 
+		{0x4,0x6,0x7,0x4,0x4}, // 4
+		{0x7,0x1,0x7,0x4,0x7}, // 5
+		{0x4,0x2,0x7,0x5,0x7}, // 6
+		{0x7,0x0,0x2,0x0,0x1}, // 7
+		{0x7,0x5,0x7,0x5,0x7}, // 8
+		{0x7,0x7,0x4,0x4,0x4}, // 9 
+		};
+	static int q = 0;
+	PORTF = 0x00;          
+	PORTC = ~cathodes[q]; 
+	PORTF = (allDigits[display_tensm][q]) | (allDigits[display_onesm][q] << 4);  // anodes: high is active
+	if(q==4){
+		q=0;
+		}else {
+		q=q+1;
+	}
+}
+
+/*
+ Function is using the const 2D array "allDigits" to
+ display number to the right LED screen. It displays
+ 2 numbers on the left 5x7 LED matrix the digits are
+ 3x5 each with a space in the middle which are used
+ to display the two digits of used for the seconds.
+*/
+void display_digits_right(){
+	const uint8_t cathodes[5]= {1<<4, 1<<3, 1<<2, 1<<1, 1<<0};
+	const int8_t allDigits [11][5] =
+	{					    // Numbers
+		{0x2,0x5,0x5,0x5,0x2}, // 0
+		{0x2,0x3,0x2,0x2,0x7}, // 1 
+		{0x3,0x4,0x2,0x1,0x7}, // 2 
+		{0x7,0x4,0x6,0x4,0x7}, // 3
+		{0x4,0x6,0x7,0x4,0x4}, // 4
+		{0x7,0x1,0x7,0x4,0x7}, // 5
+		{0x4,0x2,0x7,0x5,0x7}, // 6
+		{0x7,0x0,0x2,0x0,0x1}, // 7
+		{0x7,0x5,0x7,0x5,0x7}, // 8
+		{0x7,0x7,0x4,0x4,0x4}, // 9
+	};
+	static int q = 0;
+	PORTD = 0x00;         
+	PORTB = ~cathodes[q]; 
+	PORTD = (allDigits[display_secten][q]) | (allDigits[display_seconds][q] << 4)  ;  // anodes: high is active
+	if(q==4){
+		q=0;
+		}else {
+		q=q+1;
+	}
+}
+
+/*
+ Function configures the pins for the two LED 5x7
+ matrix one on PF & PC pins and the other on PB 
+ and PD pins 
+ 
+ Along with TCCR1A, TCCCR1B, OCR1A to initialize 
+ the interrupt th count ever 1 second. Sets timer
+ interrupt/ gives permission for interrupt with 
+ TIMSKI1 and OCIE1A, enables interrupt with sei();
+  
+ finally sets PE6 (for seconds button) & PE1 (for
+ minutes button) as inputs with pull up resistors
+ for the buttons. PE7 & PE0 are set at outputs and
+ driven high as they are used for the discrete 
+ colon LED's 
+*/
+void config_io(){
+	DDRF = 0xFF;
+	DDRC = 0xFF;  	
+	DDRB = 0xFF;  
+	DDRD = 0xFF;  
+	
+	TCCR1A = 0x00;
+	TCCR1B = 0x0B;
+	OCR1A = 31249; 
+	TIMSK1 = (1<<OCIE1A); 
+	/*
+	OCR1B = 62;
+	TIMSK2 = (1<<OCIE1B);
+	*/
+	sei();  
+	
+
+	TCCR3A = 0x0;//silent
+	TCCR3B = 0x0A;   //divide by 8 fio=2MHz
+	OCR3A = 249;
+	
+	//Alarm button
+	DDRD &= ~(1<<7);
+	PORTD |= (1<<7);
+	
+	
+	//Speaker
+	DDRC |= (1<<6);
+	PORTC &= ~(1<<6);
+
+	DDRE |= (1<<7) | (1<<0);
+	DDRE  &= ~(1<<6) & ~(1<<1) ;
+	PORTE |= (1<<6)  |  (1<<1) | (1<<7) | (1<<0) ;
+	
+}
+
+/*
+ Resets display to 00:00 when the displayed time 
+ reaches 59:59
+*/
+void reset_display(){
+	display_tensm = 0; 
+	display_onesm = 0; 
+	display_secten = 0;
+	display_seconds = 0;
+}
+
+/*
+ Function runs during the interrupt service routine
+ This function has the functional logic of the clock
+ which makes sure time displayed says in based 60. 
+*/
+void interrupt_func(){
+	PORTE ^= (1<<0);
+	display_seconds++;
+	if(display_seconds > 9) {display_seconds = 0; display_secten++;}
+	if(display_secten > 5)  {display_secten = 0; display_onesm++;}
+	if(display_onesm > 9)   {display_onesm = 0; display_tensm++;}
+	if(display_tensm > 5)   {reset_display();}
+} 
