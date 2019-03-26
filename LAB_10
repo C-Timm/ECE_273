@@ -1,0 +1,128 @@
+/*
+ * Lab_10.c
+ *
+ * Created: 3/26/2019 1:21:35 PM
+ * Author : crtimm17
+ */ 
+
+// SWDR: Three SPST btns to ground. Btn_C on PD0; Btn_E on PD1; Btn_G on PD2.
+//       Control lines SPI-CS' on PB0, LDAC' on PD4.
+//       SPI on PB 1,2.
+
+//===================== REVISED ================
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <math.h>
+
+#define C5_SAMPLE_COUNT (48) // 
+#define E5_SAMPLE_COUNT (38) // 
+#define G5_SAMPLE_COUNT (32) // 
+
+uint16_t note_G5[G5_SAMPLE_COUNT];
+uint16_t note_E5[E5_SAMPLE_COUNT];
+uint16_t note_C5[C5_SAMPLE_COUNT];
+
+void config_buttons(){
+	DDRD &= ~ (1<<0) &~ (1<<1) &~ (1<<2);
+	PORTD |= (1<<0) | (1<<1) | (1<<2);
+}
+
+void config_spi(){ 
+	SPCR = 0x50;// 0101 0000 // Master, Mode (0,0), MSB first, fast as possible.
+	SPSR = 0x01  ;// 00xx xxx1// Master, Mode (0,0), MSB first, fast as possible.
+}
+void config_timer1(){
+	TCCR1A = 0x00 ;// 0000 0000 CTC mode 4
+	TCCR1B = 0x09  ; // 0000 1001 CTC mode 4 and P = 1
+	OCR1A = 637 ;// TOP = 637
+	//OCR1B = 0;
+	sei();
+	// Suggested period ; Suggested ISR on COMPA.
+}
+void busy_wait_for_OCF1A()
+{
+	 while(~TIFR1 & (1<<OCF1A));	
+}
+
+uint8_t is_active_btn_C() {return PIND & (1<<0);}//good
+uint8_t is_active_btn_E() {return PIND & (1<<1);}//good
+uint8_t is_active_btn_G() {return PIND & (1<<2);} //good
+void spi_send_byte_1(uint16_t value){SPDR = value >> 8;} //good
+void spi_send_byte_2(uint16_t value){SPDR = (uint8_t)(value);}//good
+	
+	
+void clear_cs() {PORTB &=~ (1<<0);} //not sure
+void set_cs() {DDRB |= 1<<0; PORTB |= (1<<0);} //not sure
+	
+void wait_on_spi(){ while (~SPSR & 1<<SPIF) {;}	} //not sure
+	
+void clear_LDAC() {PORTB &=~ (1<<0);}//not sure
+void set_LDAC() {PORTB |= (1<<0);}//not sure 
+
+
+void populate_C5( )  // TODO = Replace 0+ and 0* with good values
+{
+	for (int16_t n = 0; n < C5_SAMPLE_COUNT; n ++){
+		double t = n * 0.00006375;
+		note_C5[n] = 512 + (uint16_t)(500*sin(2*3.14159*523.25*t));
+	}
+}
+void populate_E5()  //TODO = Replace 0+ and 0* with good values
+{
+	for (int16_t n = 0; n < E5_SAMPLE_COUNT; n ++){
+		double t = n * 0.00006375;
+		note_E5[n] = 512 + (uint16_t)(500*sin(2*3.14159*660*t));
+	}
+}
+void populate_G5()  //TODO = Replace 0+ and 0* with good values
+{
+	for (int16_t n = 0; n < G5_SAMPLE_COUNT; n ++){
+		double t = n * 0.00006375;
+		note_G5[n] = 512 + (uint16_t)(500*sin(2*3.14159*784*t));
+	}
+}
+
+int main(void)
+{
+	CLKPR = 0x80; CLKPR = 0x00;
+	config_buttons();
+	config_spi();
+	config_timer1();
+	int16_t index_C5 = 0;
+	populate_C5();
+	int16_t index_E5 = 0;
+	populate_E5();
+	int16_t index_G5 = 0;
+	populate_G5();
+	set_cs();
+	set_LDAC();
+	
+	while (1)
+	{
+		int16_t value = 0;
+		if (is_active_btn_C()) value += note_C5[index_C5]<<2;
+		if (is_active_btn_E()) value += note_E5[index_E5]<<2;
+		if (is_active_btn_G()) value += note_G5[index_G5]<<2;
+		value = (value<<2) | 0x07<<12; // not sure
+		////TODO -- Call all the mini-functions in the right order
+		 
+		 set_cs();
+		 clear_cs();
+		 spi_send_byte_1(value);
+		 wait_on_spi();
+		 spi_send_byte_2(value);
+		 wait_on_spi();
+		 busy_wait_for_OCF1A();
+		 clear_LDAC();
+		 set_LDAC();
+		 //TIFR1 |= OCF1A;
+		 
+		// Advance indices & wrap as needed:(show off "?:" too)
+		index_C5++;
+		index_E5++;
+		index_G5++;
+		index_C5 = (index_C5 == C5_SAMPLE_COUNT)?(0):(index_C5);
+		index_E5 = (index_E5 == E5_SAMPLE_COUNT)?(0):(index_E5);
+		index_G5 = (index_G5 == G5_SAMPLE_COUNT)?(0):(index_G5);
+	}
+}
