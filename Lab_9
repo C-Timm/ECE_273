@@ -4,13 +4,6 @@
  * Created: 3/19/2019 11:10:37 AM
  * Author : crtimm17
  */ 
-/*
- * ADC-HID-print.c
- *
- * Created: 3/19/2018 6:01:34 PM
- * Author : carrolls
- */ 
-
 /* HID-Listener Example 
  * MODIFIED from
  * http://www.pjrc.com/teensy/
@@ -85,7 +78,7 @@ void config_adc(){
 }
 
 void config_timer1_100ms(){
-	TCCR1A = 0x00; // 0000       // CTC operation,TOP = OCR1A;
+	TCCR1A = 0x00;  // CTC operation,TOP = OCR1A;
 	TCCR1B = 0x0B;// 0000 1011  // 16 MHz => 100 ms period. P = 64
 	OCR1A = 24999;//  Top = OCR1A
 	TIMSK1 |= (1<<OCIE1A);
@@ -99,20 +92,16 @@ ISR(TIMER1_COMPA_vect){ // Every period, start an ADC conversion
 ISR(ADC_vect){ // When conversion complete, post result to global var.
 	raw_ADC = ADCW;
 	
-	if(raw_ADC > 511){
+	if(raw_ADC >511){
 		//--OCR3B;
-		OCR3B = OCR3B +1+(raw_ADC-511)/95;
-		
+		OCR3B = OCR3B + 1 +(raw_ADC - 511)/47;
 	}else {
 		//++OCR3B;
-		OCR3B = OCR3B -1 -(511-raw_ADC)/95;
-				
+		OCR3B = OCR3B - 1 - (511-raw_ADC)/47;
 	}
 	if(OCR3B > 500) OCR3B = 500;
-	if(OCR3B < 95) OCR3B = 95;
-	
+	if(OCR3B < 100) OCR3B = 100;
 }
-	
 
 // Fast PWM on Timer3 based on Prescale = 64 value, TOP = 4999 and
 // MATCH-B value of 374.
@@ -121,8 +110,7 @@ ISR(ADC_vect){ // When conversion complete, post result to global var.
 void config_TC3(){
 	DDRC |= (1<<5);
 	OCR3A =4999 ; //   op-mode 15 => Fast PWM OC.3B, top = OCR3A. Period = 20 ms
-	OCR3B = 374; //   Pulse = 1.5 ms
-	TCCR3A =0xAB ; // 0010 0011//COM-3-B normal & op-mode 15
+	OCR3B = 374; //   1010 1011//COM-3-B normal & op-mode 15
 	TCCR3B =0x1B; // 0001 1011//op-mode 15 and clock div = 64
 	sei();
 }
@@ -149,6 +137,8 @@ int main(void)
 	} 
 	return -1;
 }
+
+
 ///////////////////////////PRINT.H FILE/////////////////////////////////////////
 #ifndef print_h__
 #define print_h__
