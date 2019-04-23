@@ -1,0 +1,192 @@
+;
+; Lab_13.asm
+;
+; Created: 4/23/2019 1:11:23 PM
+; Author : crtimm17
+;
+
+
+; Replace with your application code
+;.include "usb1286def.inc"
+.DSEG	
+;	.org 0x100
+.cseg
+.org 0 
+	RJMP main
+.org INT_VECTORS_SIZE
+
+main:
+;Buttons
+	in r16, DDRB
+	ANDI r16, ~(1<<0) & ~(1<<1) &  ~(1<<2) &~(1<<5)
+	out DDRB, r16
+	in r16, PORTB
+	ori r16, (1<<0) | (1<<1) | (1<<2) | (1<<5)
+	out PORTB, r16
+;OUTPUT PINS
+	in r16, DDRC
+	ori r16, (1<<6) | (1<<5) | (1<<4) | (1<<1)
+	out DDRC ,r16
+
+;Timer 3 FAST PWM 
+	;OC3A
+	LDI r20, low(306) 
+	LDI r21, high(306)
+	STS OCR3AH, r21
+	STS OCR3AL, r20	
+	;OC3B
+	LDI r22, low(306) 
+	LDI r23, high(306)
+	STS OCR3BH, r23
+	STS OCR3BL, r22	
+	;OC3C
+	LDI r24, low(306) 
+	LDI r25, high(306)
+	STS OCR3CH, r25
+	STS OCR3CL, r24	
+
+	LDI r16, 0xAB  ; 1010 1011
+	STS TCCR3A, r16
+	LDI r17, 0x09 ; 0000 1011
+	STS TCCR3B, r17
+;TIMER 1
+	LDI r16, low(19999) ; TOP = 2499
+	LDI r17, high(19999)
+	STS OCR1AH, r17
+	STS OCR1AL, r16	
+	LDI r18, 0x00 ; 0000 0000
+	STS TCCR1A, r18
+	LDI r19, 0x09 ;;0000 1010
+	STS TCCR1B, r19
+
+	
+while1:
+	RCALL subr_button_cmds
+	RCALL subr_clear
+	RCALL subr_sat
+	RCALL wait_for_OCF1A
+
+Stall: rjmp while1
+
+wait_for_OCF1A:
+	IN r24, TIFR1 
+	ANDI r24, ~(1<<OCF1A)
+	BREQ wait_for_OCF1A
+	in r16, PORTC
+	LDI r17, (1<<1)
+	eor r16, r17
+	out PORTC, r16
+	OUT TIFR1, r24
+ret
+;;;;;;;;;;;;;;;;;;;Saturate Subroutine  START;;;;;;;;;;;;;;;
+subr_sat:
+	LDI r29, 0xFC
+	LDI r30, 0x03
+	
+	LDS r16, OCR3AL
+	LDS r17, OCR3AH
+	cp r16 ,r29
+	cpc r17, r30
+	BREQ sat_set_0
+
+	LDS r16, OCR3BL
+	LDS r17, OCR3BH
+	cp r16 ,r29
+	cpc r17,r30
+	BREQ sat_set_1
+
+	LDS r16, OCR3CL
+	LDS r17, OCR3CH
+	cp r16 ,r29
+	cpc r17, r30
+	BREQ sat_set_2
+ret
+
+sat_set_0:
+	LDI r20, low(1020) 
+	LDI r21, high(1020)
+	STS OCR3AH, r21
+	STS OCR3AL, r20	
+	rjmp subr_sat	
+sat_set_1:
+	LDI r20, low(1020) 
+	LDI r21, high(1020)
+	STS OCR3BH, r21
+	STS OCR3BL, r20	
+	rjmp subr_sat	
+sat_set_2:
+	LDI r20, low(1020) 
+	LDI r21, high(1020)
+	STS OCR3CH, r21
+	STS OCR3CL, r20	
+	rjmp subr_sat	
+;;;;;;;;;;;;;;;;;;;Saturate Subroutine END ;;;;;;;;;;;;;;; 
+
+
+;;;;;;;;;;;;;;;;;;;CLEAR Subroutine START ;;;;;;;;;;;;;;;
+subr_clear:
+	in r18, PINB 
+	andi r18, (1<<5)
+	BREQ reset_low
+ret
+reset_low:
+	;OC3A
+	LDI r16, low(0)
+	LDI r17, high(0)
+	STS OCR3AH, r17
+	STS OCR3AL, r16	
+	;OC3B
+	LDI r22, low(0) 
+	LDI r23, high(0)
+	STS OCR3BH, r23
+	STS OCR3BL, r22	
+	;OC3C
+	LDI r24, low(0x00) 
+	LDI r25, high(0x00)
+	STS OCR3CH, r25
+	STS OCR3CL, r24	
+	rjmp subr_clear
+;;;;;;;;;;;;;;;;;;;CLEAR  Subroutine END ;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;BUTTONS Subroutine START ;;;;;;;;;;;;;;;
+subr_button_cmds:
+;Checking PB0
+	in r18, PINB 
+	andi r18, (1<<0)
+	BREQ btn_low_0
+
+	in r19, PINB 
+	andi r19, (1<<1)
+	BREQ btn_low_1
+
+	in r20, PINB 
+	andi r20, (1<<2)
+	BREQ btn_low_2
+exit:
+ret
+btn_low_0:
+	subi r20, low(-1)
+	sbci r21, high(-1)
+	STS OCR3AH, r21 
+	STS OCR3AL, r20
+	rjmp exit
+
+btn_low_1:
+	subi r22, low(-1)
+	sbci r23, high(-1)
+	STS OCR3BH, r23 
+	STS OCR3BL, r22
+	rjmp exit
+
+btn_low_2:
+	subi r24, low(-1)
+	sbci r25, high(-1)
+	STS OCR3CH, r25
+	STS OCR3CL, r24
+	rjmp exit
+;;;;;;;;;;;;;;;;;;;BUTTONS Subroutine END ;;;;;;;;;;;;;;;
+	
+			
+
+    
+	
