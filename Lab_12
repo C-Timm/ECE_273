@@ -1,77 +1,127 @@
 ;
+
 ; Lab_12.asm
+
 ;
+
 ; Created: 4/16/2019 1:09:33 PM
+
 ; Author : crtimm17
+
 ;
+
 ;.include "usb1286def.inc"
+
 .DSEG	
+
 	;.org 0x100
+
 	seconds: .byte 1
 
+
+
 .cseg
+
 .org 0 
+
 	RJMP main
+
 .org INT_VECTORS_SIZE
 
+
+
 main:
+
 	;SPI CONFIG
+
 	SBI DDRB, 0 ;PB0
+
 	SBI DDRB, 1 ;PB1
+
 	SBI DDRB, 2 ;PB2
+
 	;;SPI BITS
+
 	LDI r16, 0x55 ; 0101 0101
+
 	OUT SPCR, r16
 
+
+
 	LDI r17, 0x00 ; 0000 0000
+
 	OUT SPSR, r17
+
 	
+
 	;TIMER
+
 	LDI r20, low(31249) ; TOP = 31249
+
 	LDI r21, high(31249)
+
 	STS OCR1AH, r21
+
 	STS OCR1AL, r20	
+
 	
+
 	LDI r18, 0x00 ; 0000 0000
+
 	STS TCCR1A, r18
+
 	LDI r19, 0x0B ;;0000 1011
+
 	STS TCCR1B ,r19
 
-	SBI PORTB, 0 ; set CS bit
+
+
+	sbi PORTB, 0 ; set CS bit
+
 	rjmp while1
+
+
 
 while1:
 	;clear CS bit
 	CBI PORTB,0 
 	;Send SPI DATA
 	LDS r16, seconds; Maybe LDI
-	;IN r16, SPDR
 	OUT SPDR, r16;;;
-
 	rjmp wait_on_SPI
-	;;Busy Wait for SPI
-wait_on_SPI:
-	;sbrc SPSR,SPIF
-	;rjmp wait_on_SPI
-	IN r23, SPSR
-	;ANDI r23, (1<<SPIF) ;;;;;;;;;;;;;;;;;;;;;MAY NOT WORK WITH '!';;;;;;;;;;;;
-	sbrs r23,SPIF
-	;BREQ wait_on_SPI ;;;MIGHT NOT BE RIGHT
-	; Set CS bit
-	;SBI PORTB, 0
-	CBI PORTB,0 
 
+	;;Busy Wait for SPI
+
+wait_on_SPI:
+	IN r23, SPSR
+	ANDI r23, (1<<SPIF) ;;;;;;;;;;;;;;;;;;;;;MAY NOT WORK WITH '!';;;;;;;;;;;;
+	BREQ wait_on_SPI ;;;MIGHT NOT BE RIGHT
+	; Set CS bit
+	SBI PORTB, 0
 	rjmp wait_for_OCF1A
 
+
+
 wait_for_OCF1A:
+
 	IN r24, TIFR1 ;;; might need a ~ with the TIFR1
+
 	ANDI r24, ~(1<<OCF1A)
+
 	BREQ wait_for_OCF1A;;;; MIGHT NOT BE RIGHT
+
 	OUT TIFR1, r24
+
 	LDS r16, seconds
+
 	SUBI r16,(-1)
+
 	STS	 seconds, r16
-	;SBI PORTB, 0 ; set CS bit
+
+	SBI PORTB, 0 ; set CS bit
+
+
+
 
 
 Stall: RJMP while1
