@@ -44,13 +44,13 @@ main:
 	LDI r19, high(306)
 	STS OCR3CH, r19
 	STS OCR3CL, r18	
-
+	
 	LDI r16, 0xAB  ; 1010 1011
 	STS TCCR3A, r16
 	LDI r17, 0x09 ; 0000 1001
 	STS TCCR3B, r17
 ;TIMER 1
-	LDI r16, low(19999) ; TOP = 2499
+	ldi r16, low(19999) ; TOP = 2499
 	LDI r17, high(19999)
 	STS OCR1AH, r17
 	STS OCR1AL, r16	
@@ -61,9 +61,10 @@ main:
 
 	
 while1:
-	RCALL subr_button_cmds
+
 	RCALL subr_clear
 	RCALL subr_sat
+	RCALL subr_button_cmds
 	RCALL wait_for_OCF1A
 
 Stall: rjmp while1
@@ -72,60 +73,56 @@ wait_for_OCF1A:
 	IN r24, TIFR1 
 	ANDI r24, ~(1<<OCF1A)
 	BREQ wait_for_OCF1A
-	in r16, PORTC
-	LDI r17, (1<<1)
-	eor r16, r17
-	out PORTC, r16
+	
 	OUT TIFR1, r24
 ret
 ;;;;;;;;;;;;;;;;;;;Saturate Subroutine  START;;;;;;;;;;;;;;;
 subr_sat:
-	LDI r29, 0xFC
-	LDI r30, 0x03
+	LDI r29, low(1020)
+	LDI r30, high(1020)
+
 	LDS r16, OCR3AL
 	LDS r17, OCR3AH
 	cp r16 ,r29
 	cpc r17, r30
-	BRSH sat_set_0
-
-	LDI r29, 0xFC
-	LDI r30, 0x03
+	BRGE sat_set_0
+sat_cont_check_0:
 	LDS r18, OCR3BL
 	LDS r19, OCR3BH
-	cp r18 ,r29
-	cpc r19,r30
-	BRSH sat_set_1
-
-check_blue:
-	LDI r29, 0xFC
-	LDI r30, 0x03
-	LDS r20, OCR3CL
-	LDS r21, OCR3CH
-	cp r20 ,r29
-	cpc r21, r30
-	BRSH sat_set_2
-
+	cp r18, r29
+	cpc r19, r30
+	BRGE sat_set_1
+sat_cont_check_1:
+	LDS r22, OCR3CL
+	LDS r23, OCR3CH
+	cp r22, r29
+	cpc r23, r30
+	BRGE sat_set_2
+	
 exit_1:
-ret
+	ret
 
 sat_set_0:
 	LDI r16, low(1020) 
 	LDI r17, high(1020)
 	STS OCR3AH, r17
 	STS OCR3AL, r16	
-	rjmp exit_1
+	rjmp sat_cont_check_0
+
 sat_set_1:
 	LDI r18, low(1020) 
 	LDI r19, high(1020)
 	STS OCR3BH, r19
 	STS OCR3BL, r18	
-	rjmp exit_1	
+	rjmp  sat_cont_check_1
+
+
 sat_set_2:
-	LDI r20, low(1020) 
-	LDI r21, high(1020)
-	STS OCR3CH, r21
-	STS OCR3CL, r20	
-	rjmp exit_1
+	LDI r22, low(1020) 
+	LDI r23, high(1020)
+	STS OCR3CH, r23
+	STS OCR3CL, r22	
+	rjmp subr_sat
 ;;;;;;;;;;;;;;;;;;;Saturate Subroutine END ;;;;;;;;;;;;;;; 
 
 
@@ -137,16 +134,17 @@ subr_clear:
 ret
 reset_low:
 	;OC3A
+	
 	LDI r16, low(0)
 	LDI r17, high(0)
 	STS OCR3AH, r17
 	STS OCR3AL, r16	
-
+	
 	;OC3B
-	LDI r22, low(0) 
-	LDI r23, high(0)
-	STS OCR3BH, r23
-	STS OCR3BL, r22	
+	LDI r18, low(0) 
+	LDI r19, high(0)
+	STS OCR3BH, r19
+	STS OCR3BL, r18	
 
 	;OC3C
 	LDI r24, low(0) 
@@ -159,47 +157,55 @@ reset_low:
 ;;;;;;;;;;;;;;;;;;;BUTTONS Subroutine START ;;;;;;;;;;;;;;;
 subr_button_cmds:
 ;Checking PB0
-	clr r16 
-	clr r19
-	clr r20
-	in r16, PINB 
-	andi r16, (1<<0)
+
+	in r21, PINB 
+	andi r21, (1<<0)
 	BREQ btn_low_0
-
-	in r19, PINB 
-	andi r19, (1<<1)
+cont_check_0:
+	in r21, PINB 
+	andi r21, (1<<1)
 	BREQ btn_low_1
-
-	in r20, PINB 
-	andi r20, (1<<2)
+cont_check_1:
+	in r21, PINB 
+	andi r21, (1<<2)
 	BREQ btn_low_2
-
+	
 exit_2:
 ret
 
 btn_low_0:
-	subi r29, low(-1)
-	sbci r30, high(-1)
-	STS OCR3AH, r30 
-	STS OCR3AL, r29
-	rjmp exit_2
-
-btn_low_1:
-	subi r27, low(-1)
-	sbci r28, high(-1)
-	STS OCR3BH, r28 
-	STS OCR3BL, r27
-	rjmp exit_2
-
-btn_low_2:
+    ;LOAD OCRCA
+	LDS r22, OCR3AL
+	LDS r23, OCR3AH
 	subi r22, low(-1)
 	sbci r23, high(-1)
-	STS OCR3CH, r23
-	STS OCR3CL, r22
+	STS OCR3AH, r23 
+	STS OCR3AL, r22
+	rjmp cont_check_0
+
+btn_low_1:
+	LDS r19, OCR3BL
+	LDS r20, OCR3BH
+	subi r19, low(-1)
+	sbci r20, high(-1)
+	STS OCR3BH, r20 
+	STS OCR3BL, r19
+	rjmp cont_check_1
+
+btn_low_2:
+	LDS r24, OCR3CL
+	LDS r25, OCR3CH
+	subi r24, low(-1)
+	sbci r25, high(-1)
+	STS OCR3CH, r25
+	STS OCR3CL, r24
 	rjmp exit_2
 ;;;;;;;;;;;;;;;;;;;BUTTONS Subroutine END ;;;;;;;;;;;;;;;
 	
 			
+
+    
+	
 
     
 	
