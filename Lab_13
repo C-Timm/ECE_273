@@ -25,29 +25,29 @@ main:
 	out PORTB, r16
 ;OUTPUT PINS
 	in r16, DDRC
-	ori r16, (1<<6) | (1<<5) | (1<<4) | (1<<1)
+	ori r16, (1<<6) | (1<<5) | (1<<4) 
 	out DDRC ,r16
 
 ;Timer 3 FAST PWM 
 	;OC3A
-	LDI r20, low(306) 
-	LDI r21, high(306)
-	STS OCR3AH, r21
-	STS OCR3AL, r20	
+	LDI r16, low(306) 
+	LDI r17, high(306)
+	STS OCR3AH, r17
+	STS OCR3AL, r16	
 	;OC3B
 	LDI r22, low(306) 
 	LDI r23, high(306)
 	STS OCR3BH, r23
 	STS OCR3BL, r22	
 	;OC3C
-	LDI r24, low(306) 
-	LDI r25, high(306)
-	STS OCR3CH, r25
-	STS OCR3CL, r24	
+	LDI r18, low(306) 
+	LDI r19, high(306)
+	STS OCR3CH, r19
+	STS OCR3CL, r18	
 
 	LDI r16, 0xAB  ; 1010 1011
 	STS TCCR3A, r16
-	LDI r17, 0x09 ; 0000 1011
+	LDI r17, 0x09 ; 0000 1001
 	STS TCCR3B, r17
 ;TIMER 1
 	LDI r16, low(19999) ; TOP = 2499
@@ -56,7 +56,7 @@ main:
 	STS OCR1AL, r16	
 	LDI r18, 0x00 ; 0000 0000
 	STS TCCR1A, r18
-	LDI r19, 0x09 ;;0000 1010
+	LDI r19, 0x09 ;;0000 1001
 	STS TCCR1B, r19
 
 	
@@ -82,44 +82,50 @@ ret
 subr_sat:
 	LDI r29, 0xFC
 	LDI r30, 0x03
-	
 	LDS r16, OCR3AL
 	LDS r17, OCR3AH
 	cp r16 ,r29
 	cpc r17, r30
-	BREQ sat_set_0
+	BRSH sat_set_0
 
-	LDS r16, OCR3BL
-	LDS r17, OCR3BH
-	cp r16 ,r29
-	cpc r17,r30
-	BREQ sat_set_1
+	LDI r29, 0xFC
+	LDI r30, 0x03
+	LDS r18, OCR3BL
+	LDS r19, OCR3BH
+	cp r18 ,r29
+	cpc r19,r30
+	BRSH sat_set_1
 
-	LDS r16, OCR3CL
-	LDS r17, OCR3CH
-	cp r16 ,r29
-	cpc r17, r30
-	BREQ sat_set_2
+check_blue:
+	LDI r29, 0xFC
+	LDI r30, 0x03
+	LDS r20, OCR3CL
+	LDS r21, OCR3CH
+	cp r20 ,r29
+	cpc r21, r30
+	BRSH sat_set_2
+
+exit_1:
 ret
 
 sat_set_0:
-	LDI r20, low(1020) 
-	LDI r21, high(1020)
-	STS OCR3AH, r21
-	STS OCR3AL, r20	
-	rjmp subr_sat	
+	LDI r16, low(1020) 
+	LDI r17, high(1020)
+	STS OCR3AH, r17
+	STS OCR3AL, r16	
+	rjmp exit_1
 sat_set_1:
-	LDI r20, low(1020) 
-	LDI r21, high(1020)
-	STS OCR3BH, r21
-	STS OCR3BL, r20	
-	rjmp subr_sat	
+	LDI r18, low(1020) 
+	LDI r19, high(1020)
+	STS OCR3BH, r19
+	STS OCR3BL, r18	
+	rjmp exit_1	
 sat_set_2:
 	LDI r20, low(1020) 
 	LDI r21, high(1020)
 	STS OCR3CH, r21
 	STS OCR3CL, r20	
-	rjmp subr_sat	
+	rjmp exit_1
 ;;;;;;;;;;;;;;;;;;;Saturate Subroutine END ;;;;;;;;;;;;;;; 
 
 
@@ -135,14 +141,16 @@ reset_low:
 	LDI r17, high(0)
 	STS OCR3AH, r17
 	STS OCR3AL, r16	
+
 	;OC3B
 	LDI r22, low(0) 
 	LDI r23, high(0)
 	STS OCR3BH, r23
 	STS OCR3BL, r22	
+
 	;OC3C
-	LDI r24, low(0x00) 
-	LDI r25, high(0x00)
+	LDI r24, low(0) 
+	LDI r25, high(0)
 	STS OCR3CH, r25
 	STS OCR3CL, r24	
 	rjmp subr_clear
@@ -151,8 +159,11 @@ reset_low:
 ;;;;;;;;;;;;;;;;;;;BUTTONS Subroutine START ;;;;;;;;;;;;;;;
 subr_button_cmds:
 ;Checking PB0
-	in r18, PINB 
-	andi r18, (1<<0)
+	clr r16 
+	clr r19
+	clr r20
+	in r16, PINB 
+	andi r16, (1<<0)
 	BREQ btn_low_0
 
 	in r19, PINB 
@@ -162,28 +173,30 @@ subr_button_cmds:
 	in r20, PINB 
 	andi r20, (1<<2)
 	BREQ btn_low_2
-exit:
+
+exit_2:
 ret
+
 btn_low_0:
-	subi r20, low(-1)
-	sbci r21, high(-1)
-	STS OCR3AH, r21 
-	STS OCR3AL, r20
-	rjmp exit
+	subi r29, low(-1)
+	sbci r30, high(-1)
+	STS OCR3AH, r30 
+	STS OCR3AL, r29
+	rjmp exit_2
 
 btn_low_1:
-	subi r22, low(-1)
-	sbci r23, high(-1)
-	STS OCR3BH, r23 
-	STS OCR3BL, r22
-	rjmp exit
+	subi r27, low(-1)
+	sbci r28, high(-1)
+	STS OCR3BH, r28 
+	STS OCR3BL, r27
+	rjmp exit_2
 
 btn_low_2:
-	subi r24, low(-1)
-	sbci r25, high(-1)
-	STS OCR3CH, r25
-	STS OCR3CL, r24
-	rjmp exit
+	subi r22, low(-1)
+	sbci r23, high(-1)
+	STS OCR3CH, r23
+	STS OCR3CL, r22
+	rjmp exit_2
 ;;;;;;;;;;;;;;;;;;;BUTTONS Subroutine END ;;;;;;;;;;;;;;;
 	
 			
